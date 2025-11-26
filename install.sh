@@ -1,22 +1,27 @@
 #!/bin/bash
 
+set -e
+
 GitHubUser="Kant84"
 RepoName="system-maintenance"
 Branch="main"
 RAW="https://raw.githubusercontent.com/$GitHubUser/$RepoName/$Branch"
 
-# Скачиваем основной скрипт
-curl -o /usr/local/bin/system_maintenance.sh $RAW/system_maintenance.sh
+# Главный скрипт
+curl -s -o /usr/local/bin/system_maintenance.sh $RAW/system_maintenance.sh
 chmod +x /usr/local/bin/system_maintenance.sh
 
-# Скачиваем systemd юниты
-curl -o /etc/systemd/system/system-maintenance.service $RAW/system-maintenance.service
-curl -o /etc/systemd/system/system-maintenance.timer $RAW/system-maintenance.timer
+# Юниты systemd
+curl -s -o /etc/systemd/system/system-maintenance.service $RAW/system-maintenance.service
+curl -s -o /etc/systemd/system/system-maintenance.timer $RAW/system-maintenance.timer
 
-# Обновляем systemd
+# Почтовая подсистема
+if ! command -v mail >/dev/null; then
+    apt update -y
+    apt install -y mailutils
+fi
+
 systemctl daemon-reload
-
-# Включаем таймер
 systemctl enable --now system-maintenance.timer
 
 echo "Установка завершена."
