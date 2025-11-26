@@ -5,3 +5,5 @@ Description=System maintenance script
 Type=oneshot
 ExecStart=/usr/local/bin/system_maintenance.sh
 
+[Install]
+WantedBy=multi-user.target
