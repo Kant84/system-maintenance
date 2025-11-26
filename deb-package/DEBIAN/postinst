@@ -1,19 +1,13 @@
 #!/bin/bash
 set -e
 
-echo "[system-maintenance] Installing..."
+echo "[system-maintenance] Post-install started"
 
-# Создаем лог
-#touch /var/log/system_maintenance.log
-#chmod 644 /var/log/system_maintenance.log
-
-# Делаем скрипт исполняемым
-chmod +x /usr/local/bin/system_maintenance.sh
-
-# Обновляем systemd
 systemctl daemon-reload
 systemctl enable system-maintenance.service
-systemctl enable --now system-maintenance.timer
+systemctl enable system-maintenance.timer
+systemctl start system-maintenance.timer
 
-echo "[system-maintenance] Done."
+echo "[system-maintenance] Installed OK"
 exit 0
+
