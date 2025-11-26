@@ -1,8 +1,9 @@
 Package: system-maintenance
 Version: 1.0
-Section: utils
+Section: admin
 Priority: optional
 Architecture: all
-Maintainer: Kant84 <admin@example.com>
-Description: Автоматическое обслуживание Linux-системы: мониторинг, обновления, защита
-
+Maintainer: Kant84 <you@example.com>
+Description: Automatic system maintenance tool (CPU/RAM/DISK/SSH/Errors updates)
+ Automatically monitors system health and fixes common issues.
+ Runs daily using systemd timer.
