@@ -11,215 +11,125 @@
 # + Мониторинг SSH-взломов
 # + Контроль runaway / zombie процессов
 ##############################################################
+#!/bin/bash
 
-ADMIN_EMAIL="admin@example.com"
+ADMIN_EMAIL="sanichxxxx@mail.ru"
 LOG_FILE="/var/log/system_maintenance.log"
 MIN_FREE_GB=10
-##############################################################
 
+log(){ echo "$(date '+%F %T') — $1" >> "$LOG_FILE"; }
 
-##########################
-# ПИСАТЬ В ЛОГ
-##########################
-log() { echo "$(date "+%F %T") — $1" >> "$LOG_FILE"; }
-
-
-##########################
-# РОТАЦИЯ ЛОГОВ (каждые 2 дня)
-##########################
-rotate_logs() {
-    ROTATE_MARK="/var/log/system_maintenance_last_rotate"
-
-    [[ ! -f "$ROTATE_MARK" ]] && date +%s > "$ROTATE_MARK" && return
-
-    LAST=$(cat "$ROTATE_MARK")
+rotate_logs(){
+    MARK="/var/log/system_maintenance_last_rotate"
+    [[ ! -f "$MARK" ]] && date +%s > "$MARK" && return
     NOW=$(date +%s)
-
+    LAST=$(cat "$MARK")
     if (( NOW - LAST > 172800 )); then
-        echo "===== ЛОГ ПЕРЕЗАПИСАН =====" > "$LOG_FILE"
-        date +%s > "$ROTATE_MARK"
+        echo "===== ЛОГ СБРОШЕН =====" > "$LOG_FILE"
+        date +%s > "$MARK"
     fi
 }
 
+send_email(){ echo "$2" | mail -s "$1" "$ADMIN_EMAIL"; }
 
-##########################
-# ПОЧТА АДМИНУ
-##########################
-send_email() { echo "$2" | mail -s "$1" "$ADMIN_EMAIL"; }
-
-
-##########################
-# ПРОВЕРКА ДИСКА
-##########################
-check_disk() {
-    FREE_GB=$(df -BG / | awk 'NR==2 {gsub("G","",$4); print $4}')
-    log "Свободное место: ${FREE_GB} ГБ"
-
-    if (( FREE_GB < MIN_FREE_GB )); then
-        MSG="МАЛО МЕСТА!!! ОСТАЛОСЬ ${FREE_GB} ГБ"
-        log "$MSG"
-        send_email "Мало места на сервере" "$MSG"
-    fi
+check_disk(){
+    FREE=$(df -BG / | awk 'NR==2{gsub("G","",$4); print $4}')
+    log "Свободно: $FREE ГБ"
+    ((FREE < MIN_FREE_GB)) && send_email "Мало места!" "Свободно $FREE ГБ"
 }
 
-
-##########################
-# МОНИТОРИНГ CPU + RAM
-##########################
-monitor_memory_cpu() {
-    CPU=$(uptime | awk -F"load average:" '{print $2}')
+monitor_memory_cpu(){
+    CPU=$(uptime | awk -F"average:" '{print $2}')
     RAM=$(free -m | awk '/Mem:/ {print $4}')
-    log "Загрузка CPU: $CPU"
-    log "Свободная RAM: ${RAM} МБ"
+    log "CPU load: $CPU"
+    log "RAM free: $RAM MB"
 }
 
-
-##########################
-# МОНИТОРИНГ ТЕМПЕРАТУРЫ
-##########################
-monitor_temperature() {
-    TEMP=$(sensors 2>/dev/null)
-    if [[ -z "$TEMP" ]]; then
-        log "Температуру получить нельзя (нет sensors)"
+monitor_temperature(){
+    if command -v sensors >/dev/null; then
+        log "Температура:"
+        sensors >> "$LOG_FILE"
     else
-        log "Температура CPU:"
-        log "$TEMP"
+        log "sensors не установлен"
     fi
 }
 
-
-##########################
-# СИСТЕМНЫЕ ОШИБКИ JOURNALCTL
-##########################
-check_journal_errors() {
-    ERRORS=$(journalctl --since "24h ago" | grep -Ei "error|fail|panic")
-    if [[ -n "$ERRORS" ]]; then
-        log "Ошибки системы:"
-        log "$ERRORS"
-        send_email "Ошибки в журнале" "$ERRORS"
+check_journal_errors(){
+    ERR=$(journalctl --since "24h" | grep -Ei "error|fail|panic")
+    if [[ -n "$ERR" ]]; then
+        log "Ошибки:"
+        log "$ERR"
+        send_email "Ошибки системы" "$ERR"
     else
         log "Ошибок нет"
     fi
 }
 
-
-##########################
-# ПРОВЕРКА УПАВШИХ СЕРВИСОВ
-##########################
-check_services() {
-    FAILED=$(systemctl --failed --no-legend)
-    if [[ -n "$FAILED" ]]; then
+check_services(){
+    BAD=$(systemctl --failed --no-legend)
+    if [[ -n "$BAD" ]]; then
         log "Упавшие сервисы:"
-        log "$FAILED"
-
-        while read -r line; do
-            svc=$(echo "$line" | awk '{print $1}')
-            systemctl restart "$svc"
-            log "Перезапущен: $svc"
-        done <<< "$FAILED"
-
-        send_email "Проблемы с сервисами" "$FAILED"
+        log "$BAD"
+        echo "$BAD" | awk '{print $1}' | while read S; do
+            systemctl restart "$S"
+            log "Перезапущен: $S"
+        done
+        send_email "Упавшие сервисы" "$BAD"
     else
         log "Все сервисы работают"
     fi
 }
 
-
-##############################################################
-# 🔥 1. МОНИТОРИНГ ПОПЫТОК ВЗЛОМА SSH
-##############################################################
-monitor_ssh_attacks() {
-
-    # Ищем неудачные попытки входа за 24 часа
-    ATTACKERS=$(journalctl -u ssh --since "24 hours ago" | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c | sort -nr)
-
-    if [[ -n "$ATTACKERS" ]]; then
-        log "Попытки взлома SSH обнаружены:"
-        log "$ATTACKERS"
-
-        # Если fail2ban установлен — добавим IP вручную
-        if command -v fail2ban-client >/dev/null; then
-            echo "$ATTACKERS" | awk '{print $2}' | while read -r ip; do
-                fail2ban-client set sshd banip "$ip"
-                log "Fail2Ban: заблокирован IP $ip"
-            done
-        fi
-
-        send_email "Попытки взлома SSH" "$ATTACKERS"
+monitor_ssh(){
+    ATT=$(journalctl -u ssh --since "24h" | grep "Failed password" | awk '{print $(NF-3)}' | sort | uniq -c)
+    if [[ -n "$ATT" ]]; then
+        log "Попытки взлома:"
+        log "$ATT"
+        send_email "SSH атаки" "$ATT"
     else
-        log "Взломов SSH нет"
+        log "Атак SSH нет"
     fi
 }
 
+monitor_processes(){
+    Z=$(ps aux | awk '$8=="Z"')
+    [[ -n "$Z" ]] && log "Zombie:" && log "$Z" && send_email "Zombie" "$Z"
 
-##############################################################
-# 🔥 2. Контроль runaway и zombie процессов
-##############################################################
-monitor_processes() {
-
-    ##############################
-    # A) ZOMBIE ПРОЦЕССЫ
-    ##############################
-    ZOMBIES=$(ps aux | awk '$8=="Z" {print $0}')
-    if [[ -n "$ZOMBIES" ]]; then
-        log "ZOMBIE процессы:"
-        log "$ZOMBIES"
-        send_email "Zombie процессы!" "$ZOMBIES"
-    else
-        log "Zombie-процессов нет"
-    fi
-
-    ##############################
-    # B) RUNAWAY ПРОЦЕССЫ (CPU > 80%)
-    ##############################
-    RUNAWAY=$(ps aux --sort=-%cpu | awk '$3>80 {print $0}')
-
-    if [[ -n "$RUNAWAY" ]]; then
-        log "Runaway процессы (жрут CPU):"
-        log "$RUNAWAY"
-
-        # Мягкое завершение SIGTERM
-        echo "$RUNAWAY" | awk '{print $2}' | while read -r pid; do
-            kill -15 "$pid"
-            sleep 2
-            # Если жив → убиваем жестко
-            kill -0 "$pid" 2>/dev/null && kill -9 "$pid"
-            log "Процесс $pid был завершён"
+    R=$(ps aux --sort=-%cpu | awk '$3>80')
+    if [[ -n "$R" ]]; then
+        log "Runaway:"
+        log "$R"
+        echo "$R" | awk '{print $2}' | while read PID; do
+            kill -15 "$PID"
+            sleep 1
+            kill -0 "$PID" 2>/dev/null && kill -9 "$PID"
+            log "Процесс $PID убит"
         done
-
-        send_email "Runaway процессы" "$RUNAWAY"
-    else
-        log "Runaway-процессов нет"
+        send_email "Runaway" "$R"
     fi
 }
 
-
-##############################################################
-# ОБНОВЛЕНИЕ СИСТЕМЫ
-##############################################################
-update_system() {
-    log "Начато обновление"
-    apt update -y >> "$LOG_FILE" 2>&1
-    apt upgrade -y >> "$LOG_FILE" 2>&1
-    apt full-upgrade -y >> "$LOG_FILE" 2>&1
-    apt autoremove -y >> "$LOG_FILE" 2>&1
-    apt autoclean -y >> "$LOG_FILE" 2>&1
-    log "Обновление завершено"
+update_system(){
+    log "Обновление..."
+    apt update -y >> "$LOG_FILE"
+    apt upgrade -y >> "$LOG_FILE"
+    apt full-upgrade -y >> "$LOG_FILE"
+    apt autoremove -y >> "$LOG_FILE"
+    apt autoclean -y >> "$LOG_FILE"
+    log "Готово."
 }
 
-
-##############################################################
-# ГЛАВНЫЙ БЛОК
-##############################################################
 rotate_logs
-log "===== ЗАПУСК ОБСЛУЖИВАНИЯ ====="
+log "===== ЗАПУСК ====="
+
 monitor_temperature
 monitor_memory_cpu
 check_disk
 check_journal_errors
 check_services
-monitor_ssh_attacks
+monitor_ssh
 monitor_processes
 update_system
+
 log "===== ЗАВЕРШЕНО ====="
 
