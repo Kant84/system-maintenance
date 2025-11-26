@@ -1,9 +1,0 @@
-Package: system-maintenance
-Version: 1.0
-Section: admin
-Priority: optional
-Architecture: all
-Maintainer: Kant84 <sanichxxxx@mail.ru>
-Description: Automatic system maintenance toolkit
- Performs monitoring, auto-fixes errors, updates, logs, and system recovery.
-
