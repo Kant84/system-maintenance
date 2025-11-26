@@ -1,18 +1,19 @@
 #!/bin/bash
 set -e
 
-echo "[system-maintenance] Installing files..."
+echo "[system-maintenance] Installing..."
 
-# Создание каталога логов
-mkdir -p /var/log
+# Создаем лог
 touch /var/log/system_maintenance.log
 chmod 644 /var/log/system_maintenance.log
 
-# Обновление systemd
-systemctl daemon-reload
+# Делаем скрипт исполняемым
+chmod +x /usr/local/bin/system_maintenance.sh
 
-# Включаем таймер
+# Обновляем systemd
+systemctl daemon-reload
+systemctl enable system-maintenance.service
 systemctl enable --now system-maintenance.timer
 
-echo "[system-maintenance] Installation complete."
+echo "[system-maintenance] Done."
 exit 0
