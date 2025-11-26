@@ -1,1 +1,8 @@
+#!/bin/bash
+
+chmod +x /usr/local/bin/system_maintenance.sh
+
+systemctl daemon-reload
+systemctl enable --now system-maintenance.service
+systemctl enable --now system-maintenance.timer
 
