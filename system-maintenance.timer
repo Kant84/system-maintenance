@@ -1,1 +1,10 @@
+[Unit]
+Description=Run system maintenance daily
+
+[Timer]
+OnCalendar=*-*-* 00:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
 
