@@ -4,8 +4,8 @@ set -e
 echo "[system-maintenance] Installing..."
 
 # Создаем лог
-touch /var/log/system_maintenance.log
-chmod 644 /var/log/system_maintenance.log
+#touch /var/log/system_maintenance.log
+#chmod 644 /var/log/system_maintenance.log
 
 # Делаем скрипт исполняемым
 chmod +x /usr/local/bin/system_maintenance.sh
