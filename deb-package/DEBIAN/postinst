@@ -1,20 +1,15 @@
 #!/bin/bash
-
 set -e
 
-# Установка почтовой подсистемы, если нет
-if ! command -v mail >/dev/null 2>&1; then
+# install mail subsystem
+if ! command -v mail >/dev/null; then
     apt update -y
     apt install -y mailutils
 fi
 
-# Права на главный скрипт
 chmod +x /usr/local/bin/system_maintenance.sh
 
-# Обновляем systemd
 systemctl daemon-reload
-
-# Включаем сервис и таймер
 systemctl enable system-maintenance.service
 systemctl enable --now system-maintenance.timer
 
