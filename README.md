@@ -76,18 +76,21 @@ sudo dpkg -i system-maintenance.deb
 
 ```
 system-maintenance/
-├── DEBIAN/
-│   ├── control
-│   └── postinst
-├── usr/
-│   └── local/
-│       └── bin/
-│           └── system_maintenance.sh
-└── etc/
-    └── systemd/
-        └── system/
-            ├── system-maintenance.service
-            └── system-maintenance.timer
+├── README.md                     # описание
+├── install.sh                    # автоустановка через curl
+├── system_maintenance.sh         # главный скрипт
+├── system-maintenance.service    # юнит systemd (сервис)
+├── system-maintenance.timer      # юнит systemd (таймер)
+├── webhook_update.sh             # необязательное автообновление
+└── deb-package/                  # ПАПКА для сборки deb-пакета
+    ├── DEBIAN/
+    │   ├── control
+    │   └── postinst
+    └── usr/
+        └── local/
+            └── bin/
+                └── system_maintenance.sh
+
 ```
 
 ---
