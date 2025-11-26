@@ -27,7 +27,12 @@
 # + Ежедневный запуск через systemd timer (00:00)
 ##############################################################
 
-ADMIN_EMAIL="admin@example.com"
+
+##############################################################
+# АВТОМАТИЧЕСКОЕ ОБСЛУЖИВАНИЕ СИСТЕМЫ (ПОЛНЫЙ АВТОРЕЖИМ)
+##############################################################
+
+# ADMIN_EMAIL="sanichxxxx@mail.ru"   # ⛔ ОТКЛЮЧЕНО — почта не используется
 LOG_FILE="/var/log/system_maintenance.log"
 MIN_FREE_GB=10
 
@@ -44,12 +49,13 @@ rotate_logs(){
     fi
 }
 
-send_email(){ echo "$2" | mail -s "$1" "$ADMIN_EMAIL"; }
+#send_email(){ echo "$2" | mail -s "$1" "$ADMIN_EMAIL"; }   # ⛔ ОТКЛЮЧЕНО
 
 check_disk(){
     FREE=$(df -BG / | awk 'NR==2{gsub("G","",$4); print $4}')
     log "Свободно: $FREE ГБ"
-    ((FREE < MIN_FREE_GB)) && send_email "Мало места!" "Свободно $FREE ГБ"
+
+    # ((FREE < MIN_FREE_GB)) && send_email "Мало места!" "Свободно $FREE ГБ"    # ⛔ ОТКЛЮЧЕНО
 }
 
 monitor_memory_cpu(){
@@ -73,7 +79,7 @@ check_journal_errors(){
     if [[ -n "$ERR" ]]; then
         log "Ошибки:"
         log "$ERR"
-        send_email "Ошибки системы" "$ERR"
+        # send_email "Ошибки системы" "$ERR"    # ⛔ ОТКЛЮЧЕНО
     else
         log "Ошибок нет"
     fi
@@ -88,7 +94,7 @@ check_services(){
             systemctl restart "$S"
             log "Перезапущен: $S"
         done
-        send_email "Упавшие сервисы" "$BAD"
+        # send_email "Упавшие сервисы" "$BAD"    # ⛔ ОТКЛЮЧЕНО
     else
         log "Все сервисы работают"
     fi
@@ -99,7 +105,7 @@ monitor_ssh(){
     if [[ -n "$ATT" ]]; then
         log "Попытки взлома:"
         log "$ATT"
-        send_email "SSH атаки" "$ATT"
+        # send_email "SSH атаки" "$ATT"   # ⛔ ОТКЛЮЧЕНО
     else
         log "Атак SSH нет"
     fi
@@ -107,19 +113,25 @@ monitor_ssh(){
 
 monitor_processes(){
     Z=$(ps aux | awk '$8=="Z"')
-    [[ -n "$Z" ]] && log "Zombie:" && log "$Z" && send_email "Zombie" "$Z"
+    if [[ -n "$Z" ]]; then
+        log "Zombie:"
+        log "$Z"
+        # send_email "Zombie" "$Z"   # ⛔ ОТКЛЮЧЕНО
+    fi
 
     R=$(ps aux --sort=-%cpu | awk '$3>80')
     if [[ -n "$R" ]]; then
         log "Runaway:"
         log "$R"
+
         echo "$R" | awk '{print $2}' | while read PID; do
             kill -15 "$PID"
             sleep 1
             kill -0 "$PID" 2>/dev/null && kill -9 "$PID"
             log "Процесс $PID убит"
         done
-        send_email "Runaway" "$R"
+
+        # send_email "Runaway" "$R"   # ⛔ ОТКЛЮЧЕНО
     fi
 }
 
@@ -146,5 +158,3 @@ monitor_processes
 update_system
 
 log "===== ЗАВЕРШЕНО ====="
-
-
