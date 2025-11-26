@@ -1,16 +1,18 @@
 #!/bin/bash
 set -e
 
-# install mail subsystem
-if ! command -v mail >/dev/null; then
-    apt update -y
-    apt install -y mailutils
-fi
+echo "[system-maintenance] Installing files..."
 
-chmod +x /usr/local/bin/system_maintenance.sh
+# Создание каталога логов
+mkdir -p /var/log
+touch /var/log/system_maintenance.log
+chmod 644 /var/log/system_maintenance.log
 
+# Обновление systemd
 systemctl daemon-reload
-systemctl enable system-maintenance.service
+
+# Включаем таймер
 systemctl enable --now system-maintenance.timer
 
+echo "[system-maintenance] Installation complete."
 exit 0
